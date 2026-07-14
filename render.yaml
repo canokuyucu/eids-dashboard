@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: EmailImporter2
+    env: python
+    plan: free
+    startCommand: "python eids.py"
+    envVars:
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
