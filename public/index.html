@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EIDS Yetki Takip</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; }
+    header { background: linear-gradient(to right, #2563eb, #1e40af); color: white; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    .subtitle { opacity: 0.9; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0; }
+    .stat-card { background: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-label { color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 2rem; font-weight: bold; }
+    .stat-aktif { color: #16a34a; }
+    .stat-biten { color: #dc2626; }
+    .stat-iptal { color: #6b7280; }
+    .table-card { background: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f3f4f6; padding: 1rem; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+    td { padding: 1rem; border-bottom: 1px solid #e5e7eb; }
+    tr:hover { background: #f9fafb; }
+    .status { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .status-aktif { background: #dcfce7; color: #166534; }
+    .status-biten { background: #fee2e2; color: #991b1b; }
+    .status-iptal { background: #f3f4f6; color: #374151; }
+    .loading { text-align: center; padding: 2rem; color: #6b7280; }
+    .error { color: #dc2626; padding: 1rem; background: #fee2e2; border-radius: 0.5rem; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>EIDS Yetki Takip</h1>
+      <p class="subtitle">T.C. TİCARET BAKANLIĞI</p>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="stats" id="stats">
+      <div class="stat-card">
+        <div class="stat-label">Toplam</div>
+        <div class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label stat-aktif">Aktif</div>
+        <div class="stat-value stat-aktif">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label stat-biten">Biten</div>
+        <div class="stat-value stat-biten">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label stat-iptal">İptal</div>
+        <div class="stat-value stat-iptal">-</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <h2 style="margin-bottom: 1rem;">Yetki Listesi</h2>
+      <div id="loading" class="loading">Veriler yükleniyor...</div>
+      <div id="error" style="display: none;"></div>
+      <table id="table" style="display: none;">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Ad</th>
+            <th>Bitiş Tarihi</th>
+            <th>Alım Tarihi</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const sheetId = 'EIDS_YETKILER';
+    const apiKey = 'eids-490310';
+    
+    async function loadData() {
+      try {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Sheet1?key=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (!data.values) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('error').innerHTML = '<div class="error">Veri bulunamadı</div>';
+          return;
+        }
+
+        const rows = data.values.slice(1);
+        const stats = {
+          toplam: rows.length,
+          aktif: rows.filter(r => r[4] === 'AKTİF').length,
+          biten: rows.filter(r => r[4] === 'SÜRE BİTTİ').length,
+          iptal: rows.filter(r => r[4] === 'İPTAL').length
+        };
+
+        // Update stats
+        const statCards = document.querySelectorAll('.stat-value');
+        statCards[0].textContent = stats.toplam;
+        statCards[1].textContent = stats.aktif;
+        statCards[2].textContent = stats.biten;
+        statCards[3].textContent = stats.iptal;
+
+        // Update table
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = rows.map(row => `
+          <tr>
+            <td>${row[0] || '-'}</td>
+            <td>${row[1] || '-'}</td>
+            <td>${row[2] || '-'}</td>
+            <td>${row[3] || '-'}</td>
+            <td>
+              <span class="status ${
+                row[4] === 'AKTİF' ? 'status-aktif' :
+                row[4] === 'SÜRE BİTTİ' ? 'status-biten' :
+                'status-iptal'
+              }">${row[4] || '-'}</span>
+            </td>
+          </tr>
+        `).join('');
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('table').style.display = 'table';
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').innerHTML = '<div class="error">Hata: ' + error.message + '</div>';
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
