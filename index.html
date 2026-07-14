@@ -191,34 +191,25 @@
 
     // Data loading
     async function loadData() {
-      settings = loadSettings();
-
-      if (!settings.sheetId || !settings.apiKey) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('error').innerHTML = '<div class="error">Lütfen önce Ayarlar\'dan API bilgilerini girin.</div>';
-        return;
-      }
-
       try {
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${settings.sheetId}/values/${settings.sheetName}?key=${settings.apiKey}`;
-        const res = await fetch(url);
+        const apiUrl = 'https://emailimporter2.onrender.com/api/data';
+        const res = await fetch(apiUrl);
 
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          throw new Error(`Bot API: HTTP ${res.status}`);
         }
 
-        const data = await res.json();
+        const result = await res.json();
 
-        if (!data.values || data.values.length === 0) {
+        if (!result.data || result.data.length === 0) {
           document.getElementById('loading').style.display = 'none';
           document.getElementById('error').style.display = 'block';
-          document.getElementById('error').innerHTML = '<div class="error">Veri bulunamadı. API ayarlarını kontrol edin.</div>';
+          document.getElementById('error').innerHTML = '<div class="error">Veri bulunamadı. Bot çalışıyor mu kontrol et.</div>';
           return;
         }
 
-        const rows = data.values.slice(1);
-        const stats = {
+        const rows = result.data;
+        const stats = result.stats || {
           toplam: rows.length,
           aktif: rows.filter(r => r[4] === 'AKTİF').length,
           biten: rows.filter(r => r[4] === 'SÜRE BİTTİ').length,
@@ -257,7 +248,7 @@
         console.error('Error:', error);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('error').style.display = 'block';
-        document.getElementById('error').innerHTML = '<div class="error">Hata: ' + error.message + '</div>';
+        document.getElementById('error').innerHTML = '<div class="error">Bot API\'ye bağlanılamıyor: ' + error.message + '</div>';
       }
     }
 

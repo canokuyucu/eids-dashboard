@@ -3,6 +3,8 @@ import platform
 from email.utils import parsedate_to_datetime
 from google.oauth2.service_account import Credentials
 import telebot
+from flask import Flask, jsonify
+import json
 
 # --- AYARLAR ---
 EMAIL = "okuyucuali@gmail.com"
@@ -12,6 +14,7 @@ TELEGRAM_TOKEN = "8557864996:AAHguowd-10Ktl7OIwC99Sk3ypcSOVUgsH4"
 TELEGRAM_CHAT_ID = "6642524834"
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
+app = Flask(__name__)
 scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 # --- BAĞLANTI ---
@@ -220,11 +223,39 @@ def run_schedule():
         schedule.run_pending()
         time.sleep(60)
 
+# --- API ENDPOINTS ---
+@app.route('/api/data', methods=['GET'])
+def api_data():
+    if not sheet:
+        return jsonify({'error': 'Sheets bağlantısı yok'}), 500
+    try:
+        rows = sheet.get_all_values()
+        if not rows or len(rows) < 2:
+            return jsonify({'data': [], 'stats': {'toplam': 0, 'aktif': 0, 'biten': 0, 'iptal': 0}})
+
+        data = rows[1:]
+        stats = {
+            'toplam': len(data),
+            'aktif': sum(1 for r in data if len(r) > 4 and r[4] == 'AKTİF'),
+            'biten': sum(1 for r in data if len(r) > 4 and r[4] == 'SÜRE BİTTİ'),
+            'iptal': sum(1 for r in data if len(r) > 4 and r[4] == 'İPTAL')
+        }
+        return jsonify({'data': data, 'stats': stats})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    return jsonify({'status': 'ok', 'sheet_connected': sheet is not None})
+
 if __name__ == "__main__":
     print("🚀 Sistem Başlatıldı.")
     gmail_tara(ilk_tarama=True, bildir=True)
     schedule.every().day.at("09:00").do(sabah_ozeti)
     threading.Thread(target=run_schedule, daemon=True).start()
+
+    port = int(os.getenv('PORT', 8080))
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, debug=False), daemon=True).start()
 
     while True:
         try:
